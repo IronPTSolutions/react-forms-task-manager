@@ -1,93 +1,84 @@
-import { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import Select from "react-select";
 import * as TaskService from '../../../services/tasks-service';
 
+
 const validations = {
-  title: (value) => {
-    if (!value) {
-      return 'Title is required';
-    } else if (value.length < 3) {
-      return 'Title needs at least 3 chars';
-    }
+  title: { 
+    required: 'Task title is required',
+    minLength: { value: 3, message: 'Task title needs at least 3 chars' }
   }
 }
 
-const initialState = {
-  task: {
-    title: ''
-  },
-  errors: {
-    title: validations.title('')
-  },
-  touched: {
-    title: false
-  }
+const defaultValues = {
+  title: '',
+  priority: 1
 }
+
+const priorityOptions = [
+  { value: 1, label: 'P1' },
+  { value: 2, label: 'P2' },
+  { value: 3, label: 'P3' },
+  { value: 4, label: 'P4' },
+]
 
 function TaskForm({ className = '', onCreateTask = () => {} }) {
-  const [state, setState] = useState(initialState);
-  const { task, errors, touched } = state;
+  const { register, handleSubmit, reset, control, watch, formState: { errors, isValid } } = useForm({ mode: 'all', defaultValues });
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setState(
-      {
-        ...state,
-        task: {
-          ...state.task,
-          [name]: value
-        },
-        errors: {
-          ...state.errors,
-          [name]: validations[name](value)
-        }
-      }
-    );
-  }
-
-  const handleBlur = (event) => {
-    const { name } = event.target;
-    setState(
-      {
-        ...state,
-        touched: {
-          ...state.touched,
-          [name]: true
-        }
-      }
-    )
-  }
-
-  const isValid = () => Object.keys(errors).every((field) => errors[field] === undefined);
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleCreateTask = async (task) => {
     try {
-      if (isValid()) {
-        const createdTask = await TaskService.create(task);
-        setState(initialState);
-        onCreateTask(createdTask);
-        console.log(createdTask);
-      }
+      const createdTask = await TaskService.create(task);
+      reset();
+      onCreateTask(createdTask);
+      console.log(createdTask);
     } catch (error) {
       console.error(error);
     }
   }
 
+  console.info("priority", watch("priority"));
   return (
-    <form className={` ${className}`} onSubmit={handleSubmit}>
+    <form className={` ${className}`} onSubmit={handleSubmit(handleCreateTask)}>
       <div className="input-group mb-1">
+
+        {/* TITLE */}
         <span className="input-group-text"><i className="fa fa-tag"></i></span>
         <input 
-          type="text" 
-          name="title" 
-          className={`form-control ${errors.title && touched.title ? 'is-invalid' : ''}`}
+          type="text"
+          className={`form-control ${errors.title ? 'is-invalid' : ''}`}
           placeholder="Task name..."
-          value={task.title}
-          onChange={handleChange}
-          onBlur={handleBlur}
+          {...register("title", validations.title)}
           />
-        <button className="btn btn-outline-primary" type="submit" disabled={!isValid()} ><i className="fa fa-plus"></i></button>
-        {errors.title && touched.title && (<div className="invalid-feedback">{errors.title}</div>)}
+
+        {/* PRIORITY */}
+        <span className="input-group-text"><i className="fa fa-product-hunt"></i></span>
+        <Controller
+          control={control}
+          name="priority"
+          render={({ field: { value, onChange } }) => (
+            <Select
+              className="form-control"
+              options={priorityOptions}
+              value={priorityOptions.find(option => option.value === value)}
+              onChange={(option) => onChange(option.value)}
+              styles={{
+                container: (base) => ({
+                  ...base,
+                  padding: 0,
+                  border: 0,
+                  maxWidth: '100px'
+                }),
+                control: (base) => ({
+                  ...base,
+                  borderRadius: 0
+                })
+              }}
+            />
+          )}
+        />
+        
+        <button className="btn btn-outline-primary" type="submit" disabled={!isValid} ><i className="fa fa-plus"></i></button>
+        {errors.title && (<div className="invalid-feedback">{errors.title.message}</div>)}
       </div>
     </form>
   )
